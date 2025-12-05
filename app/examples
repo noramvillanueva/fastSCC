@@ -1,1 +1,233 @@
+#---------------------------------------------------------------------------
+# Efficient and scalable clustering of survival curves
+# 
+# Code for the Application to Real-World data 
+# Rotterdam dataset & Flchain dataset
+# Author: Nora M. Villanueva & Marta Sestelo
+#---------------------------------------------------------------------------
+
+
+
+library(survival) 
+library(clustcurv)
+
+
+
+
+#--------------------#
+# ROTTERDAM DATASET  #
+#--------------------#
+
+data(rotterdam)
+
+head(rotterdam)
+
+table(rotterdam$nodes)
+
+# Definir  "nodescut" para categorizar los nodos positivos
+nd <- rotterdam$nodes
+nodescut <- ifelse(nd > 13, 14, nd)  
+table(nodescut)  
+
+nodescutf<-as.factor(nodescut)
+
+rotter <- data.frame(rotterdam, nodescutf)
+
+
+
+#---------------------------------------------------------------------
+# Algorithm for determining clusters in 
+# survival curves proposed by Villanueva et al (2019).
+#--------------------------------------------------------------------- 
+
+# Testing the number of groups with the bootstrap method with parallel computing
+first <- Sys.time()
+seed <- 29072016
+set.seed(seed)
+res_b <-survclustcurves(time = rotter$rtime, status = rotter$recur,
+                        x=rotter$nodescutf, algorithm = 'kmeans', seed=seed, 
+                        nboot=500, multiple.method = "bonferroni",
+                        method = 'bootstrap', cluster = TRUE) 
+runtime <- Sys.time() - first
+runtime
+as.numeric(runtime, units="secs")
+
+
+# Optimal number of clusters and the assignments to their 
+summary(res_b)
+
+# Plotting the survival curves without grouping (Figure 4)
+figure4 <- autoplot(res_b, groups_by_colour = FALSE) 
+
+pdf("figure4.pdf", 7, 6)
+figure4
+dev.off()
+
+
+# Plotting the grouped survival curves (Figure 5)
+
+figure5 <- autoplot(res_b, groups_by_colour = TRUE) 
+
+pdf("figure5.pdf", 7, 6)
+figure5
+dev.off()
+
+
+# Testing the number of groups with the bootstrap method without parallel computing
+first <- Sys.time()
+seed <- 29072016
+set.seed(seed)
+res_b_wo <-survclustcurves(time = rotter$rtime, status = rotter$recur,
+                           x=rotter$nodescutf, algorithm = 'kmeans', seed=seed, 
+                           nboot=500, multiple.method = "bonferroni",
+                           method = 'bootstrap', cluster = FALSE) 
+runtime <- Sys.time() - first
+runtime
+as.numeric(runtime, units="secs")
+
+summary(res_b_wo)
+
+
+#--------------------------------------------------------------------
+# fastSCC method proposed by Villanueva et al (2025).
+#--------------------------------------------------------------------- 
+
+# Testing the number of groups based on log-rank test statistic 
+first <- Sys.time()
+seed <- 29072016
+set.seed(seed)
+res_lr <-survclustcurves(time = rotter$rtime, status = rotter$recur,
+                         x=rotter$nodescutf, algorithm = 'kmeans', seed=seed, 
+                         multiple.method = "bonferroni", method = 'LR') 
+runtime <- Sys.time() - first
+runtime
+as.numeric(runtime, units="secs")
+
+
+# Optimal number of clusters and the assignments to their 
+summary(res_lr)
+
+# Plotting the survival curves without grouping
+autoplot(res_lr, groups_by_colour = FALSE) 
+
+
+
+# Plotting the grouped survival curves
+autoplot(res_lr, groups_by_colour = TRUE) 
+
+
+
+
+# Realizar comparaciones multiples entre los grupos de "nodescut"
+pairwise_results <- survminer::pairwise_survdiff(Surv(rtime, recur) ~ nodescutf, data = rotter)
+
+print(pairwise_results)
+
+
+
+
+#-------------------#
+# DATASET FLCHAIN   
+#-------------------#
+data("flchain")
+
+head(flchain)
+
+#---------------------------------------------------------------------
+# Algorithm for determining clusters in 
+# survival curves proposed by Villanueva et al (2019).
+#--------------------------------------------------------------------- 
+
+first <- Sys.time()
+seed <- 29072016
+set.seed(seed)
+
+# Testing the number of groups with the bootstrap method with parallel computing
+res_b <-survclustcurves(time = flchain$futime, status = flchain$death,
+                             x=flchain$flc.grp, algorithm = 'kmeans', seed=seed, 
+                             nboot=500, multiple.method = "bonferroni",
+                             method = 'bootstrap', cluster = TRUE) 
+runtime <- Sys.time() - first
+runtime
+as.numeric(runtime, units="secs")
+
+# Optimal number of clusters and the assignments to their 
+summary(res_b)
+
+# Plotting the survival curves without grouping (Figure 6)
+figure6 <- autoplot(res_b, groups_by_colour = FALSE) 
+
+pdf("figure6.pdf", 7, 6)
+figure6
+dev.off()
+
+
+# Plotting the grouped survival curves (Figure 7)
+
+figure7 <- autoplot(res_b, groups_by_colour = TRUE) 
+
+pdf("figure7.pdf", 7, 6)
+figure7
+dev.off()
+
+
+# Testing the number of groups with the bootstrap method without parallel computing
+first <- Sys.time()
+seed <- 29072016
+set.seed(seed)
+res_b_wo <-survclustcurves(time = flchain$futime, status = flchain$death,
+                        x=flchain$flc.grp, algorithm = 'kmeans', seed=seed, 
+                        nboot=500, multiple.method = "bonferroni",
+                        method = 'bootstrap', cluster = FALSE) 
+runtime <- Sys.time() - first
+runtime
+as.numeric(runtime, units="secs")
+
+summary(res_b_wo)
+
+
+#--------------------------------------------------------------------
+# fastSCC method proposed by Villanueva et al (2025).
+#--------------------------------------------------------------------- 
+
+# Testing the number of groups based on log-rank test statistic 
+first <- Sys.time()
+seed <- 29072016
+set.seed(seed)
+res_lr <-survclustcurves(time = flchain$futime, status = flchain$death,
+                        x=flchain$flc.grp, algorithm = 'kmeans', seed=seed, 
+                        multiple.method = "bonferroni", method = 'LR') 
+runtime <- Sys.time() - first
+runtime
+as.numeric(runtime, units="secs")
+
+
+# Optimal number of clusters and the assignments to their 
+summary(res_lr)
+
+# Plotting the survival curves without grouping
+autoplot(res_lr, groups_by_colour = FALSE) 
+
+
+
+# Plotting the grouped survival curves
+autoplot(res_lr, groups_by_colour = TRUE) 
+
+
+
+# Computational time comparison between  methods
+mruntime<-microbenchmark(survclustcurves(time = flchain$futime, status = flchain$death,
+                                         x=flchain$flc.grp, algorithm = 'kmeans',  
+                                         nboot=500, multiple.method = "bonferroni",
+                                         method = 'bootstrap', cluster = FALSE),
+                         survclustcurves(time = flchain$futime, status = flchain$death,
+                                         x=flchain$flc.grp, algorithm = 'kmeans',  
+                                         nboot=500, multiple.method = "bonferroni",
+                                         method = 'bootstrap', cluster = TRUE),
+                         survclustcurves(time = flchain$futime, status = flchain$death,
+                               x=flchain$flc.grp, algorithm = 'kmeans',  
+                               multiple.method = "bonferroni", method = 'LR', cluster = TRUE), 
+                         times=1L) #10L
+print(mruntime, unit="s")
+as.numeric(mruntime, units="secs") 
 
